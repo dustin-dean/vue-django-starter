@@ -1,0 +1,19 @@
+GET http://127.0.0.1:8000/auth/users/me HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYxNDUxNjQyLCJpYXQiOjE3NjE0NDgwNDMsImp0aSI6ImI2YjIzMGRkOTg4MDRhZWJiNzZkNzIwNDFlMGJiMzYyIiwidXNlcl9pZCI6IjEifQ.RGmyc6PAd0EVsn57jGePvqhcTlZG_WLBDQyyEooRM8U
+
+###
+POST http://127.0.0.1:8000/auth/jwt/verify HTTP/1.1
+Content-Type: application/json
+
+{
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYxMzY0OTAwLCJpYXQiOjE3NjEzNjEzMDAsImp0aSI6IjA2ZTBjMjYwMzI1MDRiYzliZWViNjRlZWM0ODBjZDE4IiwidXNlcl9pZCI6IjEifQ.JIBNSZKjPuOBSLlncMDBONAgko-6L0cUSo68os4w58g"
+}
+
+###
+POST http://127.0.0.1:8000/auth/jwt/create/ HTTP/1.1
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "password"
+}
