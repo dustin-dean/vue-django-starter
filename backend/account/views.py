@@ -80,44 +80,50 @@ class CookieTokenRefreshView(TokenRefreshView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Create a new request with the refresh token in the body
-        request.data["refresh"] = refresh_token
-        response = super().post(request, *args, **kwargs)
+        # Create serializer with refresh token from cookie
+        serializer = self.get_serializer(data={"refresh": refresh_token})
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0])
+        
+        # Get the validated data
+        validated_data = serializer.validated_data
 
-        if response.status_code == 200 and "access" in response.data:
-            # Set new access token in cookie
-            cookie_settings = {
+        # Create response
+        response = Response({"detail": "Token refreshed successfully"})
+
+        # Set new access token in cookie
+        cookie_settings = {
+            "httponly": True,
+            "secure": settings.SIMPLE_JWT.get("AUTH_COOKIE_SECURE", not settings.DEBUG),
+            "samesite": settings.SIMPLE_JWT.get("AUTH_COOKIE_SAMESITE", "Strict"),
+            "max_age": int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+            "path": "/",
+        }
+
+        response.set_cookie(
+            key=settings.SIMPLE_JWT.get("AUTH_COOKIE", "access_token"),
+            value=validated_data["access"],
+            **cookie_settings,
+        )
+
+        # If new refresh token is provided (rotation enabled), update it
+        if "refresh" in validated_data:
+            refresh_cookie_settings = {
                 "httponly": True,
                 "secure": settings.SIMPLE_JWT.get("AUTH_COOKIE_SECURE", not settings.DEBUG),
                 "samesite": settings.SIMPLE_JWT.get("AUTH_COOKIE_SAMESITE", "Strict"),
-                "max_age": int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
+                "max_age": int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
                 "path": "/",
             }
 
             response.set_cookie(
-                key=settings.SIMPLE_JWT.get("AUTH_COOKIE", "access_token"),
-                value=response.data["access"],
-                **cookie_settings,
+                key=settings.SIMPLE_JWT.get("AUTH_COOKIE_REFRESH", "refresh_token"),
+                value=validated_data["refresh"],
+                **refresh_cookie_settings,
             )
-
-            # If new refresh token is provided (rotation enabled), update it
-            if "refresh" in response.data:
-                refresh_cookie_settings = {
-                    "httponly": True,
-                    "secure": settings.SIMPLE_JWT.get("AUTH_COOKIE_SECURE", not settings.DEBUG),
-                    "samesite": settings.SIMPLE_JWT.get("AUTH_COOKIE_SAMESITE", "Strict"),
-                    "max_age": int(settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"].total_seconds()),
-                    "path": "/",
-                }
-
-                response.set_cookie(
-                    key=settings.SIMPLE_JWT.get("AUTH_COOKIE_REFRESH", "refresh_token"),
-                    value=response.data["refresh"],
-                    **refresh_cookie_settings,
-                )
-
-            # Remove tokens from response body
-            response.data = {"detail": "Token refreshed successfully"}
 
         return response
 
