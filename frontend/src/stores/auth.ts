@@ -15,22 +15,15 @@ export interface LoginCredentials {
   password: string
 }
 
-export interface AuthTokens {
-  access: string
-  refresh: string
-}
-
 export const useAuthStore = defineStore('auth', () => {
   // State
-  const accessToken = ref<string | null>(localStorage.getItem('access_token'))
-  const refreshTokenValue = ref<string | null>(localStorage.getItem('refresh_token'))
   const user = ref<User | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
   // Getters
   const isAuthenticated = computed(() => {
-    return !!accessToken.value && !!user.value
+    return !!user.value
   })
 
   // Actions
@@ -41,15 +34,8 @@ export const useAuthStore = defineStore('auth', () => {
       // Clear error only when we're about to make the request
       error.value = null
 
-      // Login with Djoser
-      const response = await api.post('/auth/jwt/create/', credentials)
-      const tokens: AuthTokens = response.data
-
-      // Store tokens
-      accessToken.value = tokens.access
-      refreshTokenValue.value = tokens.refresh
-      localStorage.setItem('access_token', tokens.access)
-      localStorage.setItem('refresh_token', tokens.refresh)
+      // Login with custom cookie-based endpoint
+      await api.post('/account/login/', credentials)
 
       // Get user info
       await getCurrentUser()
@@ -64,50 +50,23 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
-    // Clear tokens and user data
-    accessToken.value = null
-    refreshTokenValue.value = null
+  const logout = async () => {
+    try {
+      // Call backend logout endpoint to blacklist token
+      await api.post('/account/logout/')
+    } catch (err) {
+      console.error('Logout error:', err)
+      // Continue with local logout even if backend call fails
+    }
+
+    // Clear user data
     user.value = null
     error.value = null
-
-    // Clear localStorage
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
 
     // Note: Redirect will be handled by the component calling logout
   }
 
-  const refreshToken = async () => {
-    if (!refreshTokenValue.value) {
-      throw new Error('No refresh token available')
-    }
-
-    try {
-      const response = await api.post('/auth/jwt/refresh/', {
-        refresh: refreshTokenValue.value,
-      })
-
-      const newAccessToken = response.data.access
-      accessToken.value = newAccessToken
-      localStorage.setItem('access_token', newAccessToken)
-
-      return newAccessToken
-    } catch (err) {
-      // Refresh failed, clear tokens
-      accessToken.value = null
-      refreshTokenValue.value = null
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
-      throw err
-    }
-  }
-
   const getCurrentUser = async () => {
-    if (!accessToken.value) {
-      return null
-    }
-
     try {
       const response = await api.get('/auth/users/me/')
       user.value = response.data
@@ -115,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (err) {
       console.error('Failed to get current user:', err)
       // If getting user fails, token might be invalid
-      logout()
+      user.value = null
       return null
     }
   }
@@ -142,16 +101,12 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const checkAuthStatus = async () => {
-    if (!accessToken.value) {
-      return false
-    }
-
     try {
       await getCurrentUser()
-      return true
+      return !!user.value
     } catch (err) {
       console.error('Auth check failed:', err)
-      logout()
+      user.value = null
       return false
     }
   }
@@ -162,8 +117,6 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     // State
-    accessToken,
-    refreshTokenValue,
     user,
     isLoading,
     error,
@@ -174,7 +127,6 @@ export const useAuthStore = defineStore('auth', () => {
     // Actions
     login,
     logout,
-    refreshToken,
     getCurrentUser,
     register,
     checkAuthStatus,

@@ -17,18 +17,15 @@ export const authGuard = async (
   if (requiresAuth) {
     // Route requires authentication
     if (!authStore.isAuthenticated) {
-      // Check if we have tokens in localStorage and try to restore session
-      const accessToken = localStorage.getItem('access_token')
-      if (accessToken) {
-        try {
-          const isValid = await authStore.checkAuthStatus()
-          if (isValid) {
-            next()
-            return
-          }
-        } catch (error) {
-          console.error('Auth check failed:', error)
+      // Try to restore session from httpOnly cookies
+      try {
+        const isValid = await authStore.checkAuthStatus()
+        if (isValid) {
+          next()
+          return
         }
+      } catch (error) {
+        console.error('Auth check failed:', error)
       }
 
       // Not authenticated, redirect to login
