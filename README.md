@@ -161,14 +161,19 @@ CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 ### API Endpoints
 
-The backend provides the following authentication endpoints via Djoser:
+The backend provides the following authentication endpoints:
 
-- `POST /auth/users/` - User registration
-- `POST /auth/jwt/create/` - Login (JWT token creation)
-- `POST /auth/jwt/refresh/` - Token refresh
-- `POST /auth/jwt/verify/` - Token verification
-- `GET /auth/users/me/` - Get current user profile
-- `PUT/PATCH /auth/users/me/` - Update user profile
+**Cookie-Based Authentication (Custom Endpoints)**:
+- `POST /api/account/login/` - Login (sets httpOnly cookies)
+- `POST /api/account/refresh/` - Token refresh (cookie-based)
+- `POST /api/account/logout/` - Logout (blacklists token, clears cookies)
+- `GET /api/account/csrf/` - Get CSRF token
+- `GET /api/account/protected/` - Example protected endpoint
+
+**User Management (Djoser)**:
+- `POST /api/auth/users/` - User registration
+- `GET /api/auth/users/me/` - Get current user profile
+- `PUT/PATCH /api/auth/users/me/` - Update user profile
 
 ## 🎨 UI Components
 
@@ -207,11 +212,25 @@ export const useAuthStore = defineStore("auth", {
 
 ## 🔐 Authentication Flow
 
+This application uses **production-ready httpOnly cookie-based JWT authentication** for enhanced security:
+
 1. User registers/logs in through the Vue frontend
-2. Django returns JWT access and refresh tokens
-3. Frontend stores tokens and includes them in API requests
-4. Protected routes use Vue Router navigation guards
-5. Automatic token refresh handling
+2. Django validates credentials and creates JWT tokens
+3. Backend sets httpOnly cookies with access and refresh tokens (Secure, SameSite=Strict)
+4. Browser automatically sends cookies with each request
+5. Protected routes use Vue Router navigation guards
+6. Automatic transparent token refresh via cookie-based mechanism
+7. No localStorage usage for tokens (XSS protection)
+8. CSRF protection with SameSite=Strict cookies
+
+**Security Features**:
+- ✅ HttpOnly cookies prevent XSS token theft
+- ✅ CSRF protection with SameSite=Strict
+- ✅ Secure flag for HTTPS-only cookies in production
+- ✅ Token blacklisting on logout
+- ✅ Automatic token refresh without JavaScript access
+
+See [SECURITY.md](SECURITY.md) for detailed security documentation.
 
 ## 🚀 Deployment
 
@@ -272,7 +291,8 @@ If you encounter any issues or have questions, please:
 
 ## ⭐ Features
 
-- ✅ JWT Authentication with Djoser
+- ✅ **Secure Cookie-Based JWT Authentication** (httpOnly, Secure, SameSite=Strict)
+- ✅ **Production-Ready Security** (XSS & CSRF protection, token blacklisting)
 - ✅ Vue 3 with Composition API
 - ✅ TypeScript support
 - ✅ Pinia state management
@@ -282,6 +302,7 @@ If you encounter any issues or have questions, please:
 - ✅ CORS configured
 - ✅ Hot reload in development
 - ✅ Production-ready build process
+- ✅ Comprehensive security documentation
 
 ---
 
